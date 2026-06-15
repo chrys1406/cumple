@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, Sparkles, ChevronLeft, ChevronRight, X, Music, Play, Pause, Images } from "lucide-react";
+import {
+  Heart,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Music,
+  Play,
+  Pause,
+  Images,
+} from "lucide-react";
 import FireworksShow from "./FireworksShow";
 
 // Importa tus fotos desde src/assets.
 import foto1 from "./assets/foto1.jpeg";
+import cancion from "./assets/cancion.mp3";
 
 // ---------------------------------------------
 // Datos editables: notas de amor y galería
@@ -32,7 +43,7 @@ export default function App() {
   const [hearts, setHearts] = useState([]);
   const [showFireworks, setShowFireworks] = useState(false);
   const [showFinalModal, setShowFinalModal] = useState(false);
-
+  const audioRef = useRef(null);
   // Lluvia continua de corazones de fondo (más grandes y notorios)
   useEffect(() => {
     const interval = setInterval(() => {
@@ -53,7 +64,8 @@ export default function App() {
   }, []);
 
   const nextNote = () => setNoteIndex((i) => (i + 1) % loveNotes.length);
-  const prevNote = () => setNoteIndex((i) => (i - 1 + loveNotes.length) % loveNotes.length);
+  const prevNote = () =>
+    setNoteIndex((i) => (i - 1 + loveNotes.length) % loveNotes.length);
 
   const handleShowClick = () => {
     if (showFireworks) return; // evita relanzar mientras corre
@@ -148,7 +160,10 @@ export default function App() {
               className="relative overflow-visible px-8 md:px-10 py-3.5 md:py-4 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-fuchsia-500 text-white font-display font-bold text-base md:text-lg shadow-lg shadow-rose-200 hover:scale-105 active:scale-95 transition-all disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed"
             >
               <span className="relative z-10 flex items-center gap-2">
-                <Sparkles size={20} /> {showFireworks ? "Te Amo Mucho Bebe..." : "Presiona aquí, mi amor"}
+                <Sparkles size={20} />{" "}
+                {showFireworks
+                  ? "Te Amo Mucho Bebe..."
+                  : "Presiona aquí, mi amor"}
               </span>
             </button>
           </div>
@@ -190,13 +205,29 @@ export default function App() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
             </span>
             <Music size={14} className="text-rose-400 shrink-0" />
-            <span className="text-xs md:text-sm text-rose-700 font-medium truncate">La cancion que siempre te dedicare bebe</span>
+            <span className="text-xs md:text-sm text-rose-700 font-medium truncate">
+              La cancion que siempre te dedicare bebe
+            </span>
             <button
-              onClick={() => setIsPlaying(!isPlaying)}
+              onClick={() => {
+                if (!audioRef.current) return;
+
+                if (isPlaying) {
+                  audioRef.current.pause();
+                  setIsPlaying(false);
+                } else {
+                  audioRef.current.play();
+                  setIsPlaying(true);
+                }
+              }}
               className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center transition shrink-0"
               aria-label={isPlaying ? "Pausar" : "Reproducir"}
             >
-              {isPlaying ? <Pause size={11} /> : <Play size={11} className="ml-0.5" />}
+              {isPlaying ? (
+                <Pause size={11} />
+              ) : (
+                <Play size={11} className="ml-0.5" />
+              )}
             </button>
           </div>
 
@@ -225,17 +256,22 @@ export default function App() {
             >
               <X size={16} />
             </button>
-            <Heart className="text-rose-500 fill-rose-500 mx-auto mb-3" size={36} />
+            <Heart
+              className="text-rose-500 fill-rose-500 mx-auto mb-3"
+              size={36}
+            />
             <h2 className="font-display italic text-4xl md:text-5xl text-rose-600 font-bold mb-4">
               ¡Feliz Cumpleaños!
             </h2>
             <p className="font-script text-xl md:text-2xl text-gray-700 leading-relaxed">
               {/* Escribe aquí tus palabras para Espocita */}
-              Mi amor, hoy quiero que sepas todo lo que significas para mí... (aquí escribo mi mensaje) 💕
+              Mi amor, hoy quiero que sepas todo lo que significas para mí...
+              (aquí escribo mi mensaje) 💕
             </p>
           </div>
         </div>
       )}
+      <audio ref={audioRef} src={cancion} onEnded={() => setIsPlaying(false)} />
     </div>
   );
 }
