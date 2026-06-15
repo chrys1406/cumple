@@ -113,16 +113,16 @@ export default function App() {
 
       <div className="relative z-10 mx-auto max-w-5xl px-4">
         {/* ===================== PANTALLA 1: hero compacto, sin scroll ===================== */}
-        <section className="min-h-screen flex flex-col items-center justify-center py-6 gap-3">
+        <section className="min-h-screen flex flex-col items-center justify-center pt-16 pb-6 gap-4 md:gap-5">
           {/* Encabezado */}
           <header className="text-center">
-            <span className="font-script text-lg md:text-2xl text-rose-500 block">
+            <span className="font-script text-xl md:text-2xl text-rose-500 block">
               Para la persona que ilumina mi vida
             </span>
-            <h1 className="font-display italic text-3xl md:text-6xl text-rose-700 font-bold leading-tight">
+            <h1 className="font-display italic text-4xl md:text-6xl text-rose-700 font-bold leading-tight">
               Feliz Cumpleaños
             </h1>
-            <p className="font-script text-2xl md:text-4xl text-fuchsia-600 font-bold">
+            <p className="font-script text-3xl md:text-4xl text-fuchsia-600 font-bold">
               mi Espocita ❤️
             </p>
           </header>
@@ -133,10 +133,10 @@ export default function App() {
             <img
               src={featuredImage}
               alt="Mi amor"
-              className="relative w-36 h-36 sm:w-44 sm:h-44 md:w-64 md:h-64 object-cover rounded-3xl border-4 border-white shadow-2xl rotate-1"
+              className="relative w-52 h-52 sm:w-60 sm:h-60 md:w-64 md:h-64 object-cover rounded-3xl border-4 border-white shadow-2xl rotate-1"
             />
-            <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-2 shadow-lg">
-              <Heart className="text-rose-500 fill-rose-500" size={16} />
+            <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-2.5 shadow-lg">
+              <Heart className="text-rose-500 fill-rose-500" size={20} />
             </div>
           </div>
 
@@ -145,62 +145,62 @@ export default function App() {
             <button
               onClick={handleShowClick}
               disabled={showFireworks}
-              className="relative overflow-visible px-6 md:px-10 py-3 md:py-4 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-fuchsia-500 text-white font-display font-bold text-sm md:text-lg shadow-lg shadow-rose-200 hover:scale-105 active:scale-95 transition-all disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed"
+              className="relative overflow-visible px-8 md:px-10 py-3.5 md:py-4 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-fuchsia-500 text-white font-display font-bold text-base md:text-lg shadow-lg shadow-rose-200 hover:scale-105 active:scale-95 transition-all disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed"
             >
               <span className="relative z-10 flex items-center gap-2">
-                <Sparkles size={18} /> {showFireworks ? "Te Amo Mucho Bebe..." : "Presiona aquí, mi amor"}
+                <Sparkles size={20} /> {showFireworks ? "Te Amo Mucho Bebe..." : "Presiona aquí, mi amor"}
               </span>
             </button>
           </div>
 
           {/* Carta con notas de amor */}
           <div className="w-full max-w-xl">
-            <div className="bg-white/60 backdrop-blur-md border border-white/70 rounded-2xl shadow-xl p-3 md:p-6 text-center min-h-[90px] md:min-h-[120px] flex flex-col items-center justify-center relative">
-              <p className="font-script text-base md:text-2xl text-gray-700 leading-snug italic px-2">
+            <div className="bg-white/60 backdrop-blur-md border border-white/70 rounded-2xl shadow-xl p-4 md:p-6 text-center min-h-[110px] md:min-h-[120px] flex flex-col items-center justify-center relative">
+              <p className="font-script text-lg md:text-2xl text-gray-700 leading-snug italic px-2">
                 "{loveNotes[noteIndex]}"
               </p>
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-3">
                 <button
                   onClick={prevNote}
-                  className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition"
+                  className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition"
                   aria-label="Carta anterior"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={18} />
                 </button>
                 <span className="text-xs text-rose-400 font-medium">
                   {noteIndex + 1} / {loveNotes.length}
                 </span>
                 <button
                   onClick={nextNote}
-                  className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition"
+                  className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition"
                   aria-label="Siguiente carta"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={18} />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Reproductor de "nuestra canción": debajo del recuadro de textos */}
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/70 shadow-md mt-1">
-            <span className="relative flex h-2 w-2">
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/70 shadow-md mt-1 max-w-[90vw]">
+            <span className="relative flex h-2 w-2 shrink-0">
               {isPlaying && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               )}
               <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
             </span>
-            <Music size={12} className="text-rose-400" />
-            <span className="text-xs text-rose-700 font-medium">La cancion que siempre te dedicare bebe</span>
+            <Music size={14} className="text-rose-400 shrink-0" />
+            <span className="text-xs md:text-sm text-rose-700 font-medium truncate">La cancion que siempre te dedicare bebe</span>
             <button
               onClick={() => setIsPlaying(!isPlaying)}
-              className="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center transition"
+              className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center transition shrink-0"
               aria-label={isPlaying ? "Pausar" : "Reproducir"}
             >
-              {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
+              {isPlaying ? <Pause size={11} /> : <Play size={11} className="ml-0.5" />}
             </button>
           </div>
 
-          <footer className="text-center text-rose-400/70 text-[10px] md:text-xs font-medium">
+          <footer className="text-center text-rose-400/70 text-xs md:text-sm font-medium">
             Hecho con todo el amor de mi corazón para mi esposa 🤍
           </footer>
         </section>

@@ -8,19 +8,24 @@ import foto3 from "./assets/foto3.jpeg";
 import foto4 from "./assets/foto4.jpeg";
 import foto5 from "./assets/foto5.jpeg";
 import foto6 from "./assets/foto6.jpeg";
+import foto7 from "./assets/foto7.jpeg";
+import foto8 from "./assets/foto8.jpeg";
+import foto9 from "./assets/foto9.jpeg";
+import foto10 from "./assets/foto10.jpeg";
+import foto11 from "./assets/foto11.jpeg";
 
 // Cuando tengas más fotos simplemente agrégalas aquí
 const memories = [
-  { id: 1, src: foto1, caption: "Nuestro primer recuerdo ❤️" },
+  { id: 1, src: foto11, caption: "Nuestro primer recuerdo ❤️" },
   { id: 2, src: foto2, caption: "Siempre juntos 💕" },
   { id: 3, src: foto3, caption: "Momentos inolvidables ✨" },
   { id: 4, src: foto4, caption: "Una sonrisa tuya 🌹" },
   { id: 5, src: foto5, caption: "Mi lugar favorito eres tú 🥰" },
   { id: 6, src: foto6, caption: "Te amo muchísimo 💖" },
-  { id: 7, src: foto1, caption: "Recuerdo especial" },
-  { id: 8, src: foto2, caption: "Mi felicidad" },
-  { id: 9, src: foto3, caption: "Para siempre" },
-  { id: 10, src: foto4, caption: "Feliz cumpleaños ❤️" },
+  { id: 7, src: foto7, caption: "Recuerdo especial" },
+  { id: 8, src: foto8, caption: "Mi felicidad" },
+  { id: 9, src: foto9, caption: "Para siempre" },
+  { id: 10, src: foto10, caption: "Feliz cumpleaños ❤️" },
 ];
 
 export default function Memories() {
