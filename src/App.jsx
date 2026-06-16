@@ -15,7 +15,6 @@ import FireworksShow from "./FireworksShow";
 
 // Importa tus fotos desde src/assets.
 import foto1 from "./assets/foto1.jpeg";
-import cancion from "./assets/cancion.mp3";
 
 // ---------------------------------------------
 // Datos editables: notas de amor y galería
@@ -131,7 +130,7 @@ export default function App() {
             <span className="font-script text-xl md:text-2xl text-rose-500 block">
               Para la persona que ilumina mi vida
             </span>
-            <h1 className="font-display italic text-4xl md:text-6xl text-rose-700 font-bold leading-tight">
+            <h1 className="font-display italic text-2xl sm:text-3xl md:text-5xl text-rose-600 font-bold mb-4">
               Feliz Cumpleaños
             </h1>
             <p className="font-script text-3xl md:text-4xl text-fuchsia-600 font-bold">
@@ -263,15 +262,36 @@ export default function App() {
             <h2 className="font-display italic text-4xl md:text-5xl text-rose-600 font-bold mb-4">
               ¡Feliz Cumpleaños!
             </h2>
-            <p className="font-script text-xl md:text-2xl text-gray-700 leading-relaxed">
+            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1">
               {/* Escribe aquí tus palabras para Espocita */}
-              Mi amor, hoy quiero que sepas todo lo que significas para mí...
-              (aquí escribo mi mensaje) 💕
+              Bebe feliz cumpleaños eres lo mejor que me paso Eres mi alegría,
+              mi tranquilidad y la persona con la que quiero compartir cada uno
+              de mis días. Gracias por estar a mi lado, por hacerme sonreír y
+              por enseñarme lo bonito que es amar de verdad. 💕
+            </p>
+            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1">
+              Te amo muchísimo, más de lo que las palabras pueden explicar, y
+              cada día que pasa mi amor por ti crece aún más. Feliz cumpleaños,
+              mi vida. Que Dios te bendiga siempre y me permita seguir caminando
+              a tu lado por muchos años más. ❤️
+            </p>
+            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1">
+              Mi alma gemela, mi otra mitad, mi bebe preciosa te amo con todo mi
+              corazon y aunque sea malo expresandome quiero que sepas que quiero
+              vivir a tu lado por el resto de mis dias no necesito a nadie mas
+              solamente a ti por que tu eres la personita que me entiende me
+              comprende me consiente sin ti no soy nada siempre te pienso y
+              desearia poder tenerte a mi lado todo el rato pero ya muy pronto
+              bebe
+            </p>
+            <p className="mt-4 font-script text-base sm:text-lg md:text-xl text-rose-600">
+              Para el amor de mi vida con mucho cariño y amor, tu Chrys ❤️
+              <br />
+              Siempre tuyo, bebé. Nunca intuyo 🤭 Besitos, amorcito.
             </p>
           </div>
         </div>
       )}
-      <audio ref={audioRef} src={cancion} onEnded={() => setIsPlaying(false)} />
     </div>
   );
 }

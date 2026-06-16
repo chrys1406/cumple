@@ -1,538 +1,689 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import * as PIXI from "pixi.js";
 
-/**
- * Show de cumpleaños: cielo estrellado, cohetes con explosión de corazones,
- * mensaje con glow, corazón gigante y lluvia romántica final.
- * Todo animado con @keyframes (no `transition`) para que se vea fluido,
- * y con cantidades limitadas para que no sature el navegador.
- */
 
-const HEARTS = ["❤️", "💖", "💕", "💗", "💞", "💘"];
-const PETALS = ["🌹", "🥀", "❤️", "💕"];
+// ─── Constantes ───────────────────────────────────────────────────────────────
+const HEARTS        = ["❤️","💖","💕","💗","💞","💘","💝","🩷"];
+const PETALS        = ["🌹","🥀","❤️","💕","💖","🌸","🌺","💗"];
+const SPARKLE_COLORS = [0xff6ba9,0xffd1e3,0xffffff,0xff9ecd,0xffb347,0xffe4b5,0xc084fc,0xf9a8d4];
 
 const rnd = (a, b) => Math.random() * (b - a) + a;
 
-// Puntos de un corazón paramétrico para el corazón gigante final
-function heartPoints(count, scale) {
-  const pts = [];
-  for (let i = 0; i < count; i++) {
-    const t = (2 * Math.PI * i) / count;
-    const x = 16 * Math.pow(Math.sin(t), 3);
-    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-    pts.push({ dx: x * scale, dy: -y * scale });
-  }
-  return pts;
+function heartEquation(t, scale) {
+  const x = 16 * Math.pow(Math.sin(t), 3);
+  const y = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
+  return { x: x * scale, y: -y * scale };
 }
 
-function FireworksShow({ onFinished, name = "Mi Preciosa Elizabeth" }) {
-  const [stars] = useState(() =>
-    Array.from({ length: 80 }).map((_, i) => ({
-      id: i,
-      left: rnd(0, 100),
-      top: rnd(0, 100),
-      size: rnd(1, 3),
-      duration: rnd(1.5, 4),
-      delay: rnd(0, 3),
-    }))
-  );
+// Puntos del corazón para explosión en forma de corazón
+function heartBurstPoints(count, scale) {
+  return Array.from({ length: count }, (_, i) => {
+    const t = (2 * Math.PI * i) / count;
+    return heartEquation(t, scale);
+  });
+}
 
-  const [rockets, setRockets] = useState([]);
-  const [bursts, setBursts] = useState([]);
-  const [showMessage, setShowMessage] = useState(false);
-  // Fases del corazón gigante: null -> "assembling" -> "pulsing" -> "dissolving" -> null
-  const [heartPhase, setHeartPhase] = useState(null);
-  const [petals, setPetals] = useState([]);
-  const [fading, setFading] = useState(false);
+const createEmojiTexture = (emoji, size) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = size + 8; canvas.height = size + 8;
+  const ctx = canvas.getContext("2d");
+  ctx.font = `${size}px serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(emoji, canvas.width / 2, canvas.height / 2);
+  return PIXI.Texture.from(canvas);
+};
 
-  const finishedRef = useRef(false);
-  // Guardamos la última versión de onFinished sin que dispare el efecto otra vez
-  const onFinishedRef = useRef(onFinished);
-  onFinishedRef.current = onFinished;
+// ─── Web Audio: sonidos sintéticos ───────────────────────────────────────────
+function createAudioContext() {
+  try { return new (window.AudioContext || window.webkitAudioContext)(); }
+  catch { return null; }
+}
+
+function playCountdownBeep(ctx, freq = 440) {
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine"; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
+  } catch {}
+}
+
+// ─── Componente ──────────────────────────────────────────────────────────────
+export default function FireworksShow({ onFinished, name = "Mi Preciosa Elizabeth", photo = null }) {
+  const containerRef    = useRef(null);
+  const [countdown, setCountdown]   = useState(3);      // 3,2,1,GO
+  const [showCountdown, setShowCountdown] = useState(true);
+  const [typewriterText, setTypewriterText]   = useState("");
+  const [showTypewriter, setShowTypewriter]   = useState(false);
+  const [showSubtitle, setShowSubtitle]       = useState(false);
+  const [cursorVisible, setCursorVisible]     = useState(true);
+  const audioCtxRef = useRef(null);
+
+  // ── Cursor parpadeante ────────────────────────────────────────────────────
+  useEffect(() => {
+    const id = setInterval(() => setCursorVisible(v => !v), 530);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Typewriter efecto ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!showTypewriter) return;
+    const fullText = name;
+    let i = 0;
+    setTypewriterText("");
+    const id = setInterval(() => {
+      i++;
+      setTypewriterText(fullText.slice(0, i));
+      if (i >= fullText.length) {
+        clearInterval(id);
+        setTimeout(() => setShowSubtitle(true), 400);
+      }
+    }, 80);
+    return () => clearInterval(id);
+  }, [showTypewriter, name]);
+
+  // ── Countdown + arranque del show ─────────────────────────────────────────
+  useEffect(() => {
+    audioCtxRef.current = createAudioContext();
+    const ctx = audioCtxRef.current;
+
+    // Countdown 3 → 2 → 1 → GO
+    let count = 3;
+    setCountdown(count);
+    playCountdownBeep(ctx, 520);
+
+    const cdInterval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        setCountdown(count);
+        playCountdownBeep(ctx, 520);
+      } else if (count === 0) {
+        setCountdown("🎆");
+        playCountdownBeep(ctx, 880);
+      } else {
+        clearInterval(cdInterval);
+        setShowCountdown(false);
+      }
+    }, 900);
+
+    return () => clearInterval(cdInterval);
+  }, []);
+
+  // ── PixiJS show (arranca después del countdown ~4s) ───────────────────────
+  useEffect(() => {
+    const delay = setTimeout(() => startPixiShow(), 3800);
+    return () => clearTimeout(delay);
+  }, [name, onFinished]);
+
+  function startPixiShow() {
+    if (!containerRef.current) return;
+
+    const width  = window.innerWidth;
+    const height = window.innerHeight;
+    const isMobile = width < 768;
+    const audioCtx = audioCtxRef.current;
+
+    let rocketInterval = null, fadeInterval = null, trailInterval = null;
+    let shootingStarTimer = null;
+    const app = new PIXI.Application();
+    let isDestroyed = false;
+
+    app.init({
+      width, height,
+      backgroundAlpha: 0,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+      antialias: !isMobile,
+    }).then(() => {
+      if (isDestroyed) { if (app.renderer) app.destroy(true,{children:true,texture:true}); return; }
+      if (app.canvas && containerRef.current) containerRef.current.appendChild(app.canvas);
+      else return;
+
+      // ── Capas ──────────────────────────────────────────────────────────────
+      const nebulaContainer  = new PIXI.Container();
+      const starsContainer   = new PIXI.Container();
+      const trailContainer   = new PIXI.Container();
+      const mainContainer    = new PIXI.Container();
+      const glowContainer    = new PIXI.Container();
+      const uiContainer      = new PIXI.Container(); // foto en corazón
+      app.stage.addChild(nebulaContainer);
+      app.stage.addChild(starsContainer);
+      app.stage.addChild(trailContainer);
+      app.stage.addChild(glowContainer);
+      app.stage.addChild(mainContainer);
+      app.stage.addChild(uiContainer);
+
+      // ── Texturas ───────────────────────────────────────────────────────────
+      const heartTextures = HEARTS.map(e => createEmojiTexture(e, isMobile ? 22 : 30));
+      const petalTextures = PETALS.map(e => createEmojiTexture(e, isMobile ? 26 : 38));
+
+      const sparkGfx   = new PIXI.Graphics().circle(0,0,3).fill({color:0xffffff});
+      const sparkTexture = app.renderer.generateTexture(sparkGfx);
+
+      const glowGfx    = new PIXI.Graphics().circle(0,0,60).fill({color:0xffffff,alpha:0.9});
+      const glowTexture = app.renderer.generateTexture(glowGfx);
+
+      const trailGfx   = new PIXI.Graphics().circle(0,0,2.5).fill({color:0xff9ecd});
+      const trailTexture = app.renderer.generateTexture(trailGfx);
+
+      // ── Nebulosa de fondo animada ───────────────────────────────────────────
+      const nebulas = [];
+      const nebulaColors = [0x3d0050, 0x1a003a, 0x4a0070, 0x200040, 0x5c0080];
+      for (let i = 0; i < (isMobile ? 5 : 8); i++) {
+        const g = new PIXI.Graphics();
+        const r = rnd(120, isMobile ? 220 : 340);
+        g.circle(0, 0, r).fill({ color: nebulaColors[i % nebulaColors.length], alpha: 0.18 });
+        const tex = app.renderer.generateTexture(g);
+        const sprite = new PIXI.Sprite(tex);
+        sprite.anchor.set(0.5);
+        sprite.x = rnd(0, width); sprite.y = rnd(0, height);
+        sprite.alpha = rnd(0.08, 0.22);
+        nebulaContainer.addChild(sprite);
+        nebulas.push({ sprite, vx: rnd(-0.15,0.15), vy: rnd(-0.08,0.08), baseAlpha: sprite.alpha, phase: rnd(0,Math.PI*2) });
+      }
+
+      // ── Estrellas ──────────────────────────────────────────────────────────
+      const starGfxA  = new PIXI.Graphics().circle(0,0,1.5).fill({color:0xffffff});
+      const starTexA  = app.renderer.generateTexture(starGfxA);
+      const starGfxB  = new PIXI.Graphics().circle(0,0,1).fill({color:0xffd1e3});
+      const starTexB  = app.renderer.generateTexture(starGfxB);
+
+      const stars = Array.from({ length: isMobile ? 90 : 160 }).map(() => {
+        const sprite = new PIXI.Sprite(Math.random() > 0.5 ? starTexA : starTexB);
+        sprite.anchor.set(0.5);
+        sprite.x = rnd(0,width); sprite.y = rnd(0,height);
+        sprite.alpha = rnd(0.2,1);
+        starsContainer.addChild(sprite);
+        return { sprite, speed: rnd(0.007,0.022) };
+      });
+
+      // ── Estado ─────────────────────────────────────────────────────────────
+      let rkCounter = 0;
+      const rocketCount = isMobile ? 14 : 20;
+      let rockets = [], particles = [], trails = [], glows = [];
+      let giantHeartSprites = [], petals = [];
+      let shootingStars = [];
+      let heartPhase = null, heartTimer = 0;
+      let nebulaTime = 0;
+
+      // ── Estrella fugaz ─────────────────────────────────────────────────────
+      function spawnShootingStar() {
+        if (isDestroyed) return;
+        const lineGfx = new PIXI.Graphics();
+        lineGfx.moveTo(0,0).lineTo(rnd(60,130),rnd(20,50))
+          .stroke({ color: 0xffffff, width: 1.5, alpha: 0.9 });
+        const tex = app.renderer.generateTexture(lineGfx);
+        const sprite = new PIXI.Sprite(tex);
+        sprite.anchor.set(0.5);
+        sprite.x = rnd(0, width * 0.7);
+        sprite.y = rnd(0, height * 0.4);
+        sprite.alpha = 0;
+        starsContainer.addChild(sprite);
+        shootingStars.push({ sprite, vx: rnd(8,14), vy: rnd(3,7), life: 1 });
+      }
+
+      shootingStarTimer = setInterval(() => {
+        if (!isDestroyed) spawnShootingStar();
+      }, rnd(2500, 4000));
+
+      // ── Flash de destello ──────────────────────────────────────────────────
+      function createFlash(cx, cy, color = 0xffffff) {
+        const g = new PIXI.Sprite(glowTexture);
+        g.anchor.set(0.5); g.tint = color;
+        g.x = cx; g.y = cy; g.alpha = 0.85; g.scale.set(0.3);
+        glowContainer.addChild(g);
+        glows.push({ sprite: g });
+      }
+
+      // ── Explosión en forma de corazón ──────────────────────────────────────
+      function createHeartBurst(cx, cy) {
+        const pts = heartBurstPoints(isMobile ? 30 : 48, isMobile ? 1.4 : 2.0);
+        pts.forEach(pt => {
+          const tex = heartTextures[Math.floor(Math.random() * heartTextures.length)];
+          const sprite = new PIXI.Sprite(tex);
+          sprite.anchor.set(0.5);
+          sprite.x = cx; sprite.y = cy;
+          mainContainer.addChild(sprite);
+          const speed = rnd(2.5, 6);
+          const angle = Math.atan2(pt.y, pt.x);
+          particles.push({
+            sprite,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            gravity: 0.04, friction: 0.96,
+            decay: rnd(0.008, 0.016),
+          });
+        });
+      }
+
+      // ── Explosión principal ────────────────────────────────────────────────
+      function createBurst(cx, cy) {
+        if (isDestroyed) return;
+        createFlash(cx, cy, SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)]);
+
+        // Chispas
+        const sparkCount = isMobile ? 40 : 65;
+        for (let i = 0; i < sparkCount; i++) {
+          const sprite = new PIXI.Sprite(sparkTexture);
+          sprite.anchor.set(0.5); sprite.x = cx; sprite.y = cy;
+          sprite.tint = SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)];
+          sprite.scale.set(rnd(0.6,1.8));
+          mainContainer.addChild(sprite);
+          const angle = rnd(0,Math.PI*2), speed = rnd(4,11);
+          particles.push({ sprite, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, gravity:0.09, friction:0.96, decay:rnd(0.012,0.025) });
+        }
+
+        // Corazones en círculo aleatorio
+        const heartCount = isMobile ? 28 : 45;
+        for (let i = 0; i < heartCount; i++) {
+          const tex = heartTextures[Math.floor(Math.random() * heartTextures.length)];
+          const sprite = new PIXI.Sprite(tex);
+          sprite.anchor.set(0.5); sprite.x = cx; sprite.y = cy;
+          mainContainer.addChild(sprite);
+          const angle = rnd(0,Math.PI*2), speed = rnd(2,7);
+          particles.push({ sprite, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed - rnd(0,2), gravity:0.035, friction:0.955, decay:rnd(0.008,0.018) });
+        }
+
+        // Explosión secundaria en forma de corazón con delay
+        setTimeout(() => {
+          if (!isDestroyed) {
+            createFlash(cx, cy, 0xff9ecd);
+            createHeartBurst(cx, cy);
+          }
+        }, rnd(100, 250));
+      }
+
+      // ── Cohetes con trayectoria curva ──────────────────────────────────────
+      rocketInterval = setInterval(() => {
+        if (isDestroyed) return;
+        if (rkCounter < rocketCount) {
+          const rkGfx = new PIXI.Graphics().circle(0,0,isMobile?4:5).fill({color:0xff6ba9});
+          const rkSprite = new PIXI.Sprite(app.renderer.generateTexture(rkGfx));
+          rkSprite.anchor.set(0.5);
+          rkSprite.x = rnd(width*0.08, width*0.92);
+          rkSprite.y = height;
+          rkSprite.tint = SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)];
+          mainContainer.addChild(rkSprite);
+          rockets.push({
+            sprite: rkSprite,
+            targetY: rnd(height*0.08, height*0.42),
+            speed: rnd(11,18),
+            curve: rnd(-0.3, 0.3), // zigzag horizontal
+            wobble: 0,
+          });
+          rkCounter++;
+        } else { if (rocketInterval) clearInterval(rocketInterval); }
+      }, isMobile ? 280 : 220);
+
+      // Estelas de cohetes con partículas brillantes
+      trailInterval = setInterval(() => {
+        if (isDestroyed) return;
+        rockets.forEach(r => {
+          for (let k = 0; k < 2; k++) {
+            const t = new PIXI.Sprite(trailTexture);
+            t.anchor.set(0.5);
+            t.x = r.sprite.x + rnd(-3,3);
+            t.y = r.sprite.y + rnd(2,10);
+            t.alpha = rnd(0.5,0.9);
+            t.scale.set(rnd(0.5,1.2));
+            t.tint = r.sprite.tint;
+            trailContainer.addChild(t);
+            trails.push({ sprite: t, decay: rnd(0.05,0.09) });
+          }
+        });
+      }, 25);
+
+      // ── Timeline ───────────────────────────────────────────────────────────
+      setTimeout(() => { if (!isDestroyed) setShowTypewriter(true); }, 1000);
+
+      // Corazón gigante + foto
+      setTimeout(() => {
+        if (isDestroyed) return;
+        heartPhase = "assembling";
+        heartTimer = Date.now();
+        const points  = isMobile ? 55 : 80;
+        const scale   = isMobile ? 9 : 13;
+        const centerX = width / 2;
+        const centerY = height * 0.56;
+
+        for (let i = 0; i < points; i++) {
+          const t = (2 * Math.PI * i) / points;
+          const targetPos = heartEquation(t, scale);
+          const tex = heartTextures[Math.floor(Math.random() * heartTextures.length)];
+          const sprite = new PIXI.Sprite(tex);
+          sprite.anchor.set(0.5);
+          sprite.x = centerX + targetPos.x + rnd(-300,300);
+          sprite.y = centerY + targetPos.y + rnd(-300,300);
+          sprite.alpha = 0;
+          sprite.scale.set(rnd(0.6,1.2));
+          mainContainer.addChild(sprite);
+          giantHeartSprites.push({
+            sprite,
+            targetX: centerX + targetPos.x,
+            targetY: centerY + targetPos.y,
+            driftX: rnd(-1.5,1.5),
+            driftY: rnd(-3,-5.5),
+          });
+        }
+
+        // Foto circular en el centro del corazón (si se pasa prop)
+        if (photo) {
+          const photoImg = new Image();
+          photoImg.crossOrigin = "anonymous";
+          photoImg.onload = () => {
+            if (isDestroyed) return;
+            const size = isMobile ? 90 : 130;
+            const photoCanvas = document.createElement("canvas");
+            photoCanvas.width = size; photoCanvas.height = size;
+            const pCtx = photoCanvas.getContext("2d");
+            pCtx.beginPath();
+            pCtx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+            pCtx.closePath();
+            pCtx.clip();
+            pCtx.drawImage(photoImg, 0, 0, size, size);
+            const photoTex = PIXI.Texture.from(photoCanvas);
+            const photoSprite = new PIXI.Sprite(photoTex);
+            photoSprite.anchor.set(0.5);
+            photoSprite.x = centerX; photoSprite.y = centerY;
+            photoSprite.alpha = 0;
+            uiContainer.addChild(photoSprite);
+            // Aparece cuando el corazón pulsa
+            setTimeout(() => {
+              if (isDestroyed) return;
+              const fadeIn = setInterval(() => {
+                photoSprite.alpha += 0.04;
+                if (photoSprite.alpha >= 1) clearInterval(fadeIn);
+              }, 30);
+            }, 1600);
+          };
+          photoImg.src = photo;
+        }
+
+        setTimeout(() => { if (!isDestroyed) heartPhase = "pulsing"; }, 1400);
+        setTimeout(() => { if (!isDestroyed) heartPhase = "dissolving"; }, 4800);
+        setTimeout(() => { if (!isDestroyed) { heartPhase = null; uiContainer.removeChildren(); } }, 6200);
+      }, 5000);
+
+      // Lluvia de pétalos con rebote
+      setTimeout(() => {
+        if (isDestroyed) return;
+        const maxPetals = isMobile ? 75 : 140;
+        for (let i = 0; i < maxPetals; i++) {
+          const tex = petalTextures[Math.floor(Math.random() * petalTextures.length)];
+          const sprite = new PIXI.Sprite(tex);
+          sprite.anchor.set(0.5);
+          sprite.x = rnd(0,width);
+          sprite.y = rnd(-250,-10);
+          sprite.scale.set(rnd(0.6,1.3));
+          mainContainer.addChild(sprite);
+          petals.push({
+            sprite,
+            speedY: rnd(2,5),
+            speedX: rnd(-0.8,0.8),
+            rotSpeed: rnd(-0.025,0.025),
+            wobble: rnd(0, Math.PI*2),
+            bounceVY: 0,
+            bounced: false,
+          });
+        }
+      }, 6200);
+
+      // Fade out y cierre
+      setTimeout(() => {
+        if (isDestroyed) return;
+        if (trailInterval) clearInterval(trailInterval);
+        if (shootingStarTimer) clearInterval(shootingStarTimer);
+        fadeInterval = setInterval(() => {
+          mainContainer.alpha  -= 0.04;
+          starsContainer.alpha -= 0.04;
+          trailContainer.alpha -= 0.04;
+          glowContainer.alpha  -= 0.04;
+          nebulaContainer.alpha -= 0.04;
+          uiContainer.alpha -= 0.04;
+          if (mainContainer.alpha <= 0) {
+            clearInterval(fadeInterval);
+            app.ticker.stop();
+            if (onFinished) onFinished();
+          }
+        }, 30);
+      }, 13500);
+
+      // ── Bucle principal ────────────────────────────────────────────────────
+      app.ticker.add((ticker) => {
+        if (isDestroyed) return;
+        nebulaTime += ticker.deltaTime * 0.01;
+
+        // Nebulosa animada
+        nebulas.forEach((n, i) => {
+          n.sprite.x += n.vx;
+          n.sprite.y += n.vy;
+          n.sprite.alpha = n.baseAlpha + Math.sin(nebulaTime + n.phase) * 0.06;
+          if (n.sprite.x < -200 || n.sprite.x > width+200) n.vx = -n.vx;
+          if (n.sprite.y < -200 || n.sprite.y > height+200) n.vy = -n.vy;
+        });
+
+        // Estrellas titilando
+        stars.forEach(s => {
+          s.sprite.alpha += s.speed;
+          if (s.sprite.alpha > 1 || s.sprite.alpha < 0.12) s.speed = -s.speed;
+        });
+
+        // Estrellas fugaces
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+          const s = shootingStars[i];
+          s.sprite.x += s.vx;
+          s.sprite.y += s.vy;
+          s.life -= 0.022;
+          s.sprite.alpha = Math.max(0, s.life);
+          if (s.life <= 0) {
+            starsContainer.removeChild(s.sprite);
+            s.sprite.destroy();
+            shootingStars.splice(i, 1);
+          }
+        }
+
+        // Cohetes con trayectoria curva
+        for (let i = rockets.length - 1; i >= 0; i--) {
+          const r = rockets[i];
+          r.wobble += 0.12;
+          r.sprite.y -= r.speed;
+          r.sprite.x += Math.sin(r.wobble) * r.curve * r.speed * 0.5;
+          if (r.sprite.y <= r.targetY) {
+            createBurst(r.sprite.x, r.sprite.y);
+            mainContainer.removeChild(r.sprite);
+            r.sprite.destroy();
+            rockets.splice(i, 1);
+          }
+        }
+
+        // Partículas
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.vx *= p.friction; p.vy *= p.friction; p.vy += p.gravity;
+          p.sprite.x += p.vx; p.sprite.y += p.vy;
+          p.sprite.alpha -= p.decay;
+          if (p.sprite.alpha <= 0) { mainContainer.removeChild(p.sprite); p.sprite.destroy(); particles.splice(i,1); }
+        }
+
+        // Estelas
+        for (let i = trails.length - 1; i >= 0; i--) {
+          const t = trails[i];
+          t.sprite.alpha -= t.decay;
+          if (t.sprite.alpha <= 0) { trailContainer.removeChild(t.sprite); t.sprite.destroy(); trails.splice(i,1); }
+        }
+
+        // Flashes
+        for (let i = glows.length - 1; i >= 0; i--) {
+          const g = glows[i];
+          g.sprite.scale.x += 0.13; g.sprite.scale.y += 0.13;
+          g.sprite.alpha -= 0.07;
+          if (g.sprite.alpha <= 0) { glowContainer.removeChild(g.sprite); g.sprite.destroy(); glows.splice(i,1); }
+        }
+
+        // Corazón gigante
+        if (heartPhase === "assembling") {
+          giantHeartSprites.forEach(pt => {
+            pt.sprite.x += (pt.targetX - pt.sprite.x) * 0.08;
+            pt.sprite.y += (pt.targetY - pt.sprite.y) * 0.08;
+            if (pt.sprite.alpha < 1) pt.sprite.alpha += 0.04;
+          });
+        } else if (heartPhase === "pulsing") {
+          const elapsed = (Date.now() - heartTimer) / 1000;
+          const pulse = 1 + Math.max(0, Math.sin(elapsed * 4.5)) * 0.09;
+          const centerX = width / 2, centerY = height * 0.56;
+          giantHeartSprites.forEach((pt, idx) => {
+            const t = (2 * Math.PI * idx) / giantHeartSprites.length;
+            const pos = heartEquation(t, (isMobile ? 9 : 13) * pulse);
+            pt.sprite.x = centerX + pos.x;
+            pt.sprite.y = centerY + pos.y;
+            const sc = 0.85 + Math.sin(elapsed * 4.5 + idx * 0.3) * 0.15;
+            pt.sprite.scale.set(sc);
+          });
+        } else if (heartPhase === "dissolving") {
+          giantHeartSprites.forEach(pt => {
+            pt.sprite.x += pt.driftX; pt.sprite.y += pt.driftY;
+            pt.sprite.alpha -= 0.018;
+          });
+        }
+
+        // Pétalos con rebote
+        petals.forEach(p => {
+          p.wobble += 0.03;
+          p.sprite.y += p.speedY + p.bounceVY;
+          p.sprite.x += p.speedX + Math.sin(p.wobble) * 0.6;
+          p.sprite.rotation += p.rotSpeed;
+
+          // Rebote al llegar abajo
+          if (!p.bounced && p.sprite.y > height - 40) {
+            p.bounced = true;
+            p.bounceVY = -rnd(2,5);
+            p.rotSpeed *= -0.8;
+          }
+          if (p.bounced) {
+            p.bounceVY += 0.18; // gravedad del rebote
+          }
+
+          if (p.sprite.y > height + 80) {
+            p.sprite.y = rnd(-80,-10);
+            p.sprite.x = rnd(0,width);
+            p.bounced = false;
+            p.bounceVY = 0;
+          }
+        });
+      });
+    });
+
+    // Cleanup
+    containerRef.current.__pixiCleanup = () => {
+      isDestroyed = true;
+      if (rocketInterval)    clearInterval(rocketInterval);
+      if (fadeInterval)      clearInterval(fadeInterval);
+      if (trailInterval)     clearInterval(trailInterval);
+      if (shootingStarTimer) clearInterval(shootingStarTimer);
+      if (app && app.renderer) {
+        try { app.destroy(true,{children:true,texture:true}); } catch {}
+      }
+    };
+  }
 
   useEffect(() => {
-    const timers = [];
-
-    // --- 2) Cohetes que suben y explotan (escalonados, cantidad limitada) ---
-    const ROCKET_COUNT = 10;
-    for (let r = 0; r < ROCKET_COUNT; r++) {
-      timers.push(
-        setTimeout(() => {
-          const x = rnd(10, 90); // % del ancho
-          const rocketId = Math.random();
-          setRockets((prev) => [...prev, { id: rocketId, x }]);
-
-          // El cohete tarda ~1.1s en llegar arriba, entonces explota
-          timers.push(
-            setTimeout(() => {
-              setRockets((prev) => prev.filter((rk) => rk.id !== rocketId));
-              const burstId = Math.random();
-              const y = rnd(15, 50); // % del alto
-              setBursts((prev) => [...prev, { id: burstId, x, y }]);
-              timers.push(
-                setTimeout(() => {
-                  setBursts((prev) => prev.filter((b) => b.id !== burstId));
-                }, 1800)
-              );
-            }, 1100)
-          );
-        }, r * 700)
-      );
-    }
-
-    // --- 4) Mensaje principal con fade-in + glow ---
-    timers.push(setTimeout(() => setShowMessage(true), 1800));
-
-    // --- 6) Corazón gigante: se ensambla, late, y se disuelve en polvo de hadas ---
-    timers.push(
-      setTimeout(() => {
-        setHeartPhase("assembling");
-        timers.push(setTimeout(() => setHeartPhase("pulsing"), 1700));
-        timers.push(setTimeout(() => setHeartPhase("dissolving"), 4000));
-        timers.push(setTimeout(() => setHeartPhase(null), 5200));
-      }, 5500)
-    );
-
-    // --- 7) Lluvia romántica final ---
-    timers.push(
-      setTimeout(() => {
-        const drops = Array.from({ length: 45 }).map((_, i) => ({
-          id: i,
-          emoji: PETALS[Math.floor(Math.random() * PETALS.length)],
-          left: rnd(0, 100),
-          size: rnd(18, 38),
-          duration: rnd(4, 8),
-          delay: rnd(0, 3),
-        }));
-        setPetals(drops);
-      }, 7500)
-    );
-
-    // --- 9) Fin del espectáculo: fade out y luego onFinished ---
-    timers.push(
-      setTimeout(() => {
-        setFading(true);
-        timers.push(
-          setTimeout(() => {
-            if (!finishedRef.current) {
-              finishedRef.current = true;
-              onFinishedRef.current && onFinishedRef.current();
-            }
-          }, 800)
-        );
-      }, 13500)
-    );
-
-    return () => timers.forEach(clearTimeout);
-  }, []); // <- se ejecuta UNA sola vez, sin importar re-renders del padre
-
-  // Puntos del corazón con su origen "disperso" (de donde vienen al ensamblarse)
-  // y un drift aleatorio para cuando se disuelven. Se generan una sola vez.
-  const giantPts = useState(() =>
-    heartPoints(90, 10.5).map((p) => ({
-      ...p,
-      fromX: rnd(-260, 260),
-      fromY: rnd(-220, 160),
-      driftX: rnd(-60, 60),
-      delay: rnd(0, 0.45),
-    }))
-  )[0];
-
-  // Chispas/sparkles decorativos alrededor del corazón
-  const sparklePts = useState(() =>
-    Array.from({ length: 22 }).map(() => ({
-      angle: rnd(0, 360),
-      dist: rnd(70, 230),
-      size: rnd(10, 22),
-      duration: rnd(1.2, 2.4),
-      delay: rnd(0, 2),
-    }))
-  )[0];
+    return () => {
+      if (containerRef.current?.__pixiCleanup) containerRef.current.__pixiCleanup();
+      if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} }
+    };
+  }, []);
 
   return (
-    <div
-      className={`fixed inset-0 pointer-events-none overflow-hidden transition-opacity duration-700 ${
-        fading ? "opacity-0" : "opacity-100"
-      }`}
-      style={{
-        zIndex: 9999,
-        background: "radial-gradient(circle at center, rgba(20,0,35,0.55), rgba(0,0,0,0.85))",
-        contain: "layout paint size",
-        transform: "translateZ(0)",
-      }}
-    >
-      <style>{`
-        @keyframes twinkle {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 1; }
-        }
-        @keyframes fadeInZoom {
-          from { opacity: 0; transform: scale(0.7); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes fw-launch {
-          from { transform: translateY(0); opacity: 1; }
-          to { transform: translateY(-100vh); opacity: 1; }
-        }
-        @keyframes fw-flash {
-          from { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
-          to { transform: translate(-50%, -50%) scale(6); opacity: 0; }
-        }
-        @keyframes fw-spark {
-          from { transform: translate(-50%, -50%) translate(0,0) scale(1); opacity: 1; }
-          to { transform: translate(-50%, -50%) translate(var(--sx), var(--sy)) scale(0.3); opacity: 0; }
-        }
-        @keyframes fw-heartburst {
-          0% { transform: translate(-50%, -50%) translate(0,0) scale(0.3) rotate(0deg); opacity: 1; }
-          100% { transform: translate(-50%, -50%) translate(var(--dx), calc(var(--dy) + 60px)) scale(1.3) rotate(380deg); opacity: 0; }
-        }
-        @keyframes giantHeartAppear {
-          0% { opacity: 0; transform: scale(0.3); }
-          40% { opacity: 1; }
-          100% { opacity: 1; transform: scale(1); }
-        }
-        @keyframes heartAssemble {
-          0% {
-            opacity: 0;
-            transform: translate(var(--fromX), var(--fromY)) scale(0.2) rotate(180deg);
-          }
-          55% {
-            opacity: 1;
-          }
-          80% {
-            transform: translate(var(--toX), var(--toY)) scale(1.25) rotate(0deg);
-          }
-          100% {
-            opacity: 1;
-            transform: translate(var(--toX), var(--toY)) scale(1) rotate(0deg);
-          }
-        }
-        @keyframes heartPulse {
-          0%, 100% { transform: translate(var(--toX), var(--toY)) scale(1); }
-          50% { transform: translate(var(--toX), var(--toY)) scale(1.12); }
-        }
-        @keyframes heartDissolve {
-          0% { opacity: 1; transform: translate(var(--toX), var(--toY)) scale(1); filter: blur(0px); }
-          100% {
-            opacity: 0;
-            transform: translate(calc(var(--toX) + var(--driftX)), calc(var(--toY) - 140px)) scale(0.4);
-            filter: blur(4px);
-          }
-        }
-        @keyframes auraGlow {
-          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
-          30% { opacity: 1; }
-          100% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.15); }
-        }
-        @keyframes auraPulse {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-          50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.75; }
-        }
-        @keyframes sparkleTwinkle {
-          0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
-          50% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(180deg); }
-        }
-        @keyframes ringExpand {
-          0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.9; }
-          100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
-        }
-        @keyframes floatDown {
-          from { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
-          10% { opacity: 0.9; }
-          90% { opacity: 0.9; }
-          to { transform: translateY(110vh) rotate(360deg); opacity: 0; }
-        }
+    <div ref={containerRef} className="fixed inset-0 w-full h-full z-[9999] overflow-hidden select-none"
+      style={{ background: "radial-gradient(ellipse at center, #1a0030 0%, #0c0314 60%, #000008 100%)" }}>
 
-        .star {
-          position: absolute;
-          background: white;
-          border-radius: 50%;
-          animation: twinkle ease-in-out infinite;
-          will-change: opacity;
-        }
-        .birthday-title {
-          animation: fadeInZoom 1.4s ease forwards;
-          text-shadow: 0 0 10px #fff, 0 0 20px #ff7eb3, 0 0 40px #ff4d88, 0 0 70px #ff4d88;
-        }
-        .fw-rocket {
-          position: absolute; bottom: 0; width: 4px; height: 48px; border-radius: 10px;
-          background: linear-gradient(to top, transparent, #ffb3cc, #fff);
-          box-shadow: 0 0 10px #fff, 0 0 20px #ff80aa;
-          animation: fw-launch 1.1s ease-in forwards;
-        }
-        .fw-flash {
-          position: absolute; width: 24px; height: 24px; border-radius: 50%;
-          background: #fff; filter: blur(8px);
-          box-shadow: 0 0 20px #fff, 0 0 60px #ff75a7, 0 0 100px deeppink;
-          animation: fw-flash 0.7s forwards;
-          will-change: transform, opacity;
-        }
-        .fw-spark {
-          position: absolute; width: 3px; height: 3px; border-radius: 50%;
-          background: #fff; box-shadow: 0 0 6px #fff;
-          animation: fw-spark 1s ease-out forwards;
-          will-change: transform, opacity;
-        }
-        .fw-heart {
-          position: absolute;
-          text-shadow: 0 0 8px #ff6d9d;
-          will-change: transform, opacity;
-        }
-        .fw-heart-burst { animation: fw-heartburst ease-out forwards; }
-        .giant-heart-point {
-          position: absolute;
-          text-shadow: 0 0 10px hotpink;
-          will-change: transform, opacity;
-        }
-        .giant-heart-point.assembling {
-          animation: heartAssemble 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        .giant-heart-point.pulsing {
-          animation: heartPulse 1.6s ease-in-out infinite;
-        }
-        .giant-heart-point.dissolving {
-          animation: heartDissolve 1.1s ease-in forwards;
-        }
-        .heart-aura {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,182,224,0.55) 0%, rgba(255,110,180,0.25) 45%, rgba(255,80,160,0) 75%);
-          animation: auraGlow 1.4s ease-out forwards;
-        }
-        .heart-aura.pulsing {
-          animation: auraPulse 1.6s ease-in-out infinite;
-        }
-        .heart-ring {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          border: 3px solid rgba(255, 215, 245, 0.8);
-          border-radius: 50%;
-          box-shadow: 0 0 18px rgba(255, 182, 224, 0.8);
-          animation: ringExpand 1.3s ease-out forwards;
-        }
-        .heart-sparkle {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          animation: sparkleTwinkle ease-in-out infinite;
-          text-shadow: 0 0 8px #ffd6f3;
-          will-change: transform, opacity;
-        }
-        .petal {
-          position: absolute;
-          top: -10%;
-          animation: floatDown linear forwards;
-          text-shadow: 0 0 6px hotpink;
-          will-change: transform, opacity;
-        }
-      `}</style>
+      {/* ── Countdown ──────────────────────────────────────────────────────── */}
+      {showCountdown && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span key={countdown} className="font-black text-white select-none"
+            style={{
+              fontSize: "clamp(5rem, 20vw, 12rem)",
+              textShadow: "0 0 40px #ff6ba9, 0 0 80px #c084fc, 0 0 120px #ff6ba9",
+              animation: "countPop 0.85s cubic-bezier(0.34,1.56,0.64,1) forwards",
+            }}>
+            {countdown}
+          </span>
+        </div>
+      )}
 
-      {/* 1) Cielo estrellado */}
-      {stars.map((s) => (
-        <div
-          key={s.id}
-          className="star"
-          style={{
-            left: `${s.left}%`,
-            top: `${s.top}%`,
-            width: `${s.size}px`,
-            height: `${s.size}px`,
-            animationDuration: `${s.duration}s`,
-            animationDelay: `${s.delay}s`,
-          }}
-        />
-      ))}
+      {/* ── Mensaje con typewriter ─────────────────────────────────────────── */}
+      {showTypewriter && (
+        <div className="absolute top-[9%] left-0 w-full flex flex-col items-center justify-center text-center px-4 pointer-events-none select-none"
+          style={{ animation: "pop 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards" }}>
 
-      {/* 2) Cohetes subiendo */}
-      {rockets.map((rk) => (
-        <div key={rk.id} className="fw-rocket" style={{ left: `${rk.x}%` }} />
-      ))}
-
-      {/* 3) Explosiones: destello + chispas + corazones */}
-      {bursts.map((b) => {
-        const sparks = Array.from({ length: 14 }).map((_, i) => {
-          const angle = (Math.PI * 2 * i) / 14 + Math.random() * 0.3;
-          const d = rnd(40, 150);
-          return { sx: Math.cos(angle) * d, sy: Math.sin(angle) * d, key: `${b.id}-s${i}` };
-        });
-        const burstHearts = Array.from({ length: 16 }).map((_, i) => {
-          const angle = Math.random() * Math.PI * 2;
-          const d = Math.sqrt(Math.random()) * 220;
-          return {
-            dx: Math.cos(angle) * d,
-            dy: Math.sin(angle) * d,
-            size: rnd(16, 32),
-            dur: rnd(1.6, 2.6),
-            emoji: HEARTS[Math.floor(Math.random() * HEARTS.length)],
-            key: `${b.id}-h${i}`,
-          };
-        });
-        return (
-          <React.Fragment key={b.id}>
-            <div className="fw-flash" style={{ left: `${b.x}%`, top: `${b.y}%` }} />
-            {sparks.map((s) => (
-              <div
-                key={s.key}
-                className="fw-spark"
-                style={{ left: `${b.x}%`, top: `${b.y}%`, "--sx": `${s.sx}px`, "--sy": `${s.sy}px` }}
-              />
-            ))}
-            {burstHearts.map((h) => (
-              <div
-                key={h.key}
-                className="fw-heart fw-heart-burst"
-                style={{
-                  left: `${b.x}%`,
-                  top: `${b.y}%`,
-                  fontSize: h.size,
-                  "--dx": `${h.dx}px`,
-                  "--dy": `${h.dy}px`,
-                  animationDuration: `${h.dur}s`,
-                }}
-              >
-                {h.emoji}
-              </div>
-            ))}
-          </React.Fragment>
-        );
-      })}
-
-      {/* 4 y 5) Mensaje principal + romántico */}
-      {showMessage && (
-        <div className="absolute w-full text-center px-4" style={{ top: "8%" }}>
-          <h1
-            className="birthday-title"
-            style={{ fontSize: "clamp(40px,6vw,80px)", color: "#fff", fontWeight: "bold" }}
-          >
+          <h1 className="font-extrabold text-white mb-1 tracking-wide"
+            style={{
+              fontSize: "clamp(1.5rem, 6vw, 3rem)",
+              textShadow: "0 0 20px #ff6ba9, 0 0 50px #ff6ba9, 0 0 100px #c084fc",
+            }}>
             🎉 Feliz Cumpleaños 🎉
           </h1>
-          <h2
-            className="birthday-title"
-            style={{ fontSize: "clamp(34px,5vw,60px)", color: "#ff8fc2", marginTop: "10px", fontWeight: "bold" }}
-          >
-            {name} ❤️
+
+          {/* Nombre con typewriter */}
+          <h2 className="font-black mb-3 min-h-[2.5rem]"
+            style={{
+              fontSize: "clamp(1.3rem, 5.5vw, 2.5rem)",
+              background: "linear-gradient(90deg,#ff6ba9,#c084fc,#ff9ecd,#ffd1e3,#ff6ba9)",
+              backgroundSize: "300% auto",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              animation: "shimmer 2.5s linear infinite",
+              filter: "drop-shadow(0 2px 10px #ff6ba9)",
+            }}>
+            {typewriterText}
+            <span style={{
+              opacity: cursorVisible ? 1 : 0,
+              WebkitTextFillColor: "#ff9ecd",
+              transition: "opacity 0.1s",
+            }}>|</span>
           </h2>
-          <p
-            className="birthday-title"
-            style={{
-              marginTop: "25px",
-              color: "#ffd6e8",
-              fontSize: "clamp(16px,2vw,26px)",
-              maxWidth: "900px",
-              marginInline: "auto",
-              lineHeight: "1.6",
-            }}
-          >
-            Gracias por llenar mi vida de amor y felicidad.
-            <br />
-            Hoy celebramos un año más de tu hermosa vida.
-            <br />
-            ❤️ Te amo muchísimo, {name} ❤️
-          </p>
-        </div>
-      )}
 
-      {/* 6) Corazón gigante: ensamblaje mágico, latido y disolución en polvo de hadas */}
-      {heartPhase && (
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "55%",
-            transform: "translate(-50%, -50%)",
-            width: 0,
-            height: 0,
-          }}
-        >
-          {/* Resplandor de fondo tipo aura mágica */}
-          <div
-            className={`heart-aura ${heartPhase === "pulsing" ? "pulsing" : ""}`}
-            style={{
-              width: 420,
-              height: 420,
-              marginLeft: -210,
-              marginTop: -210,
-              opacity: heartPhase === "dissolving" ? 0 : undefined,
-              transition: heartPhase === "dissolving" ? "opacity 1s ease-out" : undefined,
-            }}
-          />
-
-          {/* Anillo de onda expansiva al formarse */}
-          {heartPhase === "assembling" && (
-            <div className="heart-ring" style={{ width: 60, height: 60, marginLeft: -30, marginTop: -30 }} />
-          )}
-
-          {/* Chispas brillantes orbitando */}
-          {(heartPhase === "assembling" || heartPhase === "pulsing") &&
-            sparklePts.map((s, i) => {
-              const rad = (s.angle * Math.PI) / 180;
-              const x = Math.cos(rad) * s.dist;
-              const y = Math.sin(rad) * s.dist;
-              return (
-                <div
-                  key={i}
-                  className="heart-sparkle"
-                  style={{
-                    fontSize: s.size,
-                    marginLeft: x,
-                    marginTop: y,
-                    animationDuration: `${s.duration}s`,
-                    animationDelay: `${s.delay}s`,
-                  }}
-                >
-                  ✨
-                </div>
-              );
-            })}
-
-          {/* Puntos del corazón gigante */}
-          {giantPts.map((p, i) => (
-            <div
-              key={i}
-              className={`giant-heart-point ${
-                heartPhase === "assembling"
-                  ? "assembling"
-                  : heartPhase === "pulsing"
-                  ? "pulsing"
-                  : "dissolving"
-              }`}
+          {showSubtitle && (
+            <div className="space-y-0.5 font-medium max-w-xs md:max-w-lg"
               style={{
-                fontSize: 26,
-                marginLeft: -13,
-                marginTop: -13,
-                "--fromX": `${p.fromX}px`,
-                "--fromY": `${p.fromY}px`,
-                "--toX": `${p.dx}px`,
-                "--toY": `${p.dy}px`,
-                "--driftX": `${p.driftX}px`,
-                animationDelay: heartPhase === "assembling" ? `${p.delay}s` : `${i * 0.006}s`,
-              }}
-            >
-              💖
+                fontSize: "clamp(0.65rem, 2.5vw, 0.9rem)",
+                color: "#ffd1e3",
+                textShadow: "0 2px 8px rgba(0,0,0,0.95)",
+                animation: "fadeUp 0.6s ease-out forwards",
+              }}>
+              <p>✨ Gracias por llenar mi vida de amor y felicidad.</p>
+              <p>🌹 Hoy celebramos un año más de tu hermosa vida.</p>
+              <p>💕 Te amo muchísimo, mi amor entero.</p>
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {/* 7) Lluvia romántica final */}
-      {petals.map((p) => (
-        <div
-          key={p.id}
-          className="petal"
-          style={{
-            left: `${p.left}%`,
-            fontSize: `${p.size}px`,
-            animationDuration: `${p.duration}s`,
-            animationDelay: `${p.delay}s`,
-          }}
-        >
-          {p.emoji}
-        </div>
-      ))}
+      <style>{`
+        @keyframes countPop {
+          0%   { transform: scale(2.5); opacity: 0; }
+          40%  { transform: scale(0.9); opacity: 1; }
+          70%  { transform: scale(1.08); }
+          100% { transform: scale(1);   opacity: 0; }
+        }
+        @keyframes pop {
+          0%   { transform: scale(0.6);  opacity: 0; }
+          70%  { transform: scale(1.05); opacity: 0.9; }
+          100% { transform: scale(1);    opacity: 1; }
+        }
+        @keyframes shimmer {
+          0%   { background-position: 0% center; }
+          100% { background-position: 300% center; }
+        }
+        @keyframes fadeUp {
+          0%   { transform: translateY(12px); opacity: 0; }
+          100% { transform: translateY(0);    opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
-
-export default React.memo(FireworksShow);
