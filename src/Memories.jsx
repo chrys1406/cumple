@@ -23,7 +23,7 @@ const memories = [
   { id: 5, src: foto5, caption: "Dia de pisinaaaaa yeiiiii 🥰" },
   { id: 6, src: foto6, caption: "Tan hermosa que es mi bebe💖" },
   { id: 7, src: foto7, caption: "jajaj recuerdo que no quise botarlo en la calle y lo puse en tu bolsilo💕 " },
-  { id: 8, src: foto8, caption: "Mi doña que peluches y tambien parecias esos raperos jajaj❤️" },
+  { id: 8, src: foto8, caption: "Mi doña de peluches y tambien parecias esos raperos jajaj❤️" },
   { id: 9, src: foto9, caption: "Mi frutilla con mostacho te amo mucho mucho mucho🥰" },
   { id: 10, src: foto10, caption: "Nuestro primer cumpleaños juntos ❤️" },
 ];
