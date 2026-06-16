@@ -207,27 +207,6 @@ export default function App() {
             <span className="text-xs md:text-sm text-rose-700 font-medium truncate">
               La cancion que siempre te dedicare bebe
             </span>
-            <button
-              onClick={() => {
-                if (!audioRef.current) return;
-
-                if (isPlaying) {
-                  audioRef.current.pause();
-                  setIsPlaying(false);
-                } else {
-                  audioRef.current.play();
-                  setIsPlaying(true);
-                }
-              }}
-              className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center transition shrink-0"
-              aria-label={isPlaying ? "Pausar" : "Reproducir"}
-            >
-              {isPlaying ? (
-                <Pause size={11} />
-              ) : (
-                <Play size={11} className="ml-0.5" />
-              )}
-            </button>
           </div>
 
           <footer className="text-center text-rose-400/70 text-xs md:text-sm font-medium">
