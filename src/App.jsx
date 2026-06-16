@@ -218,12 +218,19 @@ export default function App() {
       {/* Modal final: mensaje de Feliz Cumpleaños */}
       {showFinalModal && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-md z-[200] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-md z-[200]
+             flex items-start justify-center
+             overflow-y-auto p-4 sm:p-6"
           style={{ animation: "fadeIn 0.6s ease-out" }}
           onClick={() => setShowFinalModal(false)}
         >
           <div
-            className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border-4 border-rose-200"
+             className="relative bg-white rounded-3xl shadow-2xl
+             max-w-2xl w-full
+             p-6 sm:p-8
+             text-center
+             border-4 border-rose-200
+             my-8 max-h-[90vh] overflow-y-auto"
             style={{ animation: "popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -241,20 +248,20 @@ export default function App() {
             <h2 className="font-display italic text-4xl md:text-5xl text-rose-600 font-bold mb-4">
               ¡Feliz Cumpleaños!
             </h2>
-            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1">
+            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1 mb-4">
               {/* Escribe aquí tus palabras para Espocita */}
               Bebe feliz cumpleaños eres lo mejor que me paso Eres mi alegría,
               mi tranquilidad y la persona con la que quiero compartir cada uno
               de mis días. Gracias por estar a mi lado, por hacerme sonreír y
               por enseñarme lo bonito que es amar de verdad. 💕
             </p>
-            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1">
+            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1 mb-4">
               Te amo muchísimo, más de lo que las palabras pueden explicar, y
               cada día que pasa mi amor por ti crece aún más. Feliz cumpleaños,
               mi vida. Que Dios te bendiga siempre y me permita seguir caminando
               a tu lado por muchos años más. ❤️
             </p>
-            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1">
+            <p className="font-script text-base sm:text-lg md:text-2xl text-gray-700 leading-relaxed px-1 mb-4">
               Mi alma gemela, mi otra mitad, mi bebe preciosa te amo con todo mi
               corazon y aunque sea malo expresandome quiero que sepas que quiero
               vivir a tu lado por el resto de mis dias no necesito a nadie mas
