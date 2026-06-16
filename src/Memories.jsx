@@ -124,6 +124,9 @@ export default function Memories() {
       <p className="script text-3xl text-pink-500 mb-8">
         Cada pedacito forma nuestro corazón ❤️
       </p>
+      <p className="script text-3xl text-pink-500 mb-8">
+       Has click en las imagenes  para que se abran mi corazon de melon ❤️
+      </p>
 
       <div className="heart">
 
